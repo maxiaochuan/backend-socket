@@ -24,7 +24,7 @@ module.exports = {
       ref  : 'origin/master',
       repo : 'git@github.com:maxiaochuan/backend-socket.git',
       path : '/var/mxcins.com/backend-socket',
-      'post-deploy' : 'yarn install && pm2 reload ecosystem.config.js --env production'
+      'post-deploy' : 'source ~/.zshrc && yarn install && pm2 reload ecosystem.config.js --env production'
     }
   }
 };
