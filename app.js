@@ -1,37 +1,57 @@
+const cookie = require('cookie');
+const request = require('request-promise-native');
 const app = require('express')();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http);
-const request = require('request-promise-native');
+const io = require('socket.io')(http, {
+  cookie: false,
+});
 
-const chat = io.of('/chat');
+io.use((socket, next) => {
+  console.log('use cookie parse');
+  if (socket.request.headers.cookie) {
+    socket.request.cookies = cookie.parse(socket.request.headers.cookie);
+  }
+  next();
+})
 
-chat.use(async (socket, next) => {
+
+
+io.use(async (socket, next) => {
+  console.log('use authorized');
   try {
-    if (socket.handshake.headers.cookie) {
-      const resp = await request({
-        method: 'POST',
-        uri: 'http://127.0.0.1:3000/api/authenticate.json',
-        headers: {
-          Cookie: socket.handshake.headers.cookie,
-        },
-      });
-      console.log('resp', resp);
-      next();
-    }
+    const resp = await request({
+      method: 'POST',
+      uri: 'http://127.0.0.1:3000/api/authenticate.json',
+      headers: {
+        Cookie: socket.handshake.headers.cookie,
+      },
+    });
+    socket.user = resp;
+    next();
   } catch (error) {
-    console.log('error', error);
     // (err, response, body) => {
     //   if (response && response.statusCode === 204) {
     //     return next();
     //   }
-    next(new Error('Authorization Error'));
+    next(new Error('Not Authorized'));
     // }
   }
 })
 
+const users = new Map();
+
+const chat = io.of('/chat');
 
 chat.on('connection', socket => {
-  console.log('some one connected');
+  console.log('some one connected', socket.id);
+  const key = socket.request.cookies.Authorization;
+  users.set(key, socket);
+  if (!key) {
+    console.error('!key');
+    socket.disconnect(true);
+  }
+  // users.set()
+  console.log('users.size', users.size);
   socket.on('chat message', msg => {
     chat.emit('chat message', msg);
   })
